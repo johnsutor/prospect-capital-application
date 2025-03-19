@@ -6,4 +6,4 @@ type-check:
 	python -m mypy . --ignore-missing-imports
 
 test:
-	python -m pytest
+	python -m pytest --cov --cov-fail-under=85

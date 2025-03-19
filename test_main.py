@@ -1,3 +1,4 @@
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -227,3 +228,27 @@ def test_main_function(with_holdings, monkeypatch):
             if with_holdings:
                 mock_success.assert_called_once()
                 assert hasattr(st.session_state, "holdings_df")
+
+
+def test_rate_limiting(monkeypatch):
+    """Test that rate limiting warning is triggered when client exceeds allowed requests."""
+    from main import IP_REQUESTS, MAX_REQUESTS, main
+
+    test_ip = "127.0.0.1"
+    current = time.time()
+    IP_REQUESTS[test_ip] = [current - 1 for _ in range(MAX_REQUESTS)]
+
+    fake_ctx = MagicMock()
+    fake_ctx.request.client.host = test_ip
+    monkeypatch.setattr("main.get_script_run_ctx", lambda: fake_ctx)
+
+    monkeypatch.setattr("streamlit.text_input", lambda *args, **kwargs: "1234567890")
+    monkeypatch.setattr("streamlit.button", lambda *args, **kwargs: True)
+    monkeypatch.setattr("streamlit.spinner", lambda x: x)
+    monkeypatch.setattr("main.fetch_holdings", lambda x: None)
+
+    with patch("main.st.warning") as mock_warning:
+        main()
+        mock_warning.assert_called_once_with(
+            "Rate limit exceeded. Please try again later."
+        )

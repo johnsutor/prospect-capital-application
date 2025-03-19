@@ -1,3 +1,4 @@
+import time
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 import matplotlib.pyplot as plt
@@ -5,6 +6,12 @@ import pandas as pd
 import requests
 import streamlit as st
 from lxml import etree
+from streamlit.runtime.scriptrunner import get_script_run_ctx
+
+# Rate limit utilities
+IP_REQUESTS: Dict[str, List[float]] = {}
+RATE_LIMIT = 10
+MAX_REQUESTS = 5
 
 
 @st.cache_data(show_spinner=False)
@@ -70,13 +77,35 @@ def main() -> None:
     """
     st.title("Prospect Capital Holdings Viewer")
 
+    ctx = get_script_run_ctx()
+    client_ip = (
+        ctx.request.client.host
+        if ctx and hasattr(ctx, "request") and ctx.request
+        else "unknown"
+    )
+    if client_ip not in IP_REQUESTS:
+        IP_REQUESTS[client_ip] = []
+    current_time = time.time()
+    IP_REQUESTS[client_ip] = [
+        t for t in IP_REQUESTS[client_ip] if current_time - t < RATE_LIMIT
+    ]
+    if len(IP_REQUESTS[client_ip]) >= MAX_REQUESTS:
+        st.warning("Rate limit exceeded. Please try again later.")
+        return
+    IP_REQUESTS[client_ip].append(current_time)
+
     if "holdings_df" not in st.session_state:
         st.session_state.holdings_df = None
 
     cik_input = st.text_input("Enter CIK", "")
     filter_keyword = st.text_input("Filter by Title", "")
 
-    # Progressive Disclosure of chart options
+    if (
+        cik_input and not cik_input.strip().isdigit()
+    ):  # Validates CIK input to only digits
+        st.error("Invalid CIK input. Please enter digits only.")
+        return
+
     with st.expander("Chart Options"):
         threshold_pct = st.slider(
             "Minimum % for individual slice",
