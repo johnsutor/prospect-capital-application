@@ -14,6 +14,25 @@ RATE_LIMIT = 10
 MAX_REQUESTS = 5
 
 
+def validate_cik(cik_input: str) -> Optional[str]:
+    """
+    Validates CIK input to ensure it only contains digits and is not too long.
+
+    Args:
+        cik_input (str): The CIK provided by the user.
+
+    Returns:
+        Optional[str]: None if valid, or an error message if invalid.
+    """
+    if not cik_input.strip().isdigit():
+        return "Invalid CIK input. Please enter digits only."
+
+    if len(cik_input.strip()) > 10:
+        return "Invalid CIK input. CIK should be 10 digits or less."
+
+    return None
+
+
 @st.cache_data(show_spinner=False)
 def fetch_holdings(cik_input: str) -> Optional[List[Dict[str, Optional[str]]]]:
     """
@@ -100,13 +119,12 @@ def main() -> None:
     cik_input = st.text_input("Enter CIK", "")
     filter_keyword = st.text_input("Filter by Title", "")
 
-    if (
-        cik_input and not cik_input.strip().isdigit()
-    ):  # Validates CIK input to only digits
-        st.error("Invalid CIK input. Please enter digits only.")
+    error_message = validate_cik(cik_input) if cik_input else None
+    if error_message:
+        st.error(error_message)
         return
 
-    with st.expander("Chart Options"):
+    with st.expander("Pie Chart Options"):
         threshold_pct = st.slider(
             "Minimum % for individual slice",
             min_value=0.5,
